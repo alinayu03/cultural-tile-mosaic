@@ -7,6 +7,8 @@ import { StoryView } from "@/components/StoryView";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Upload } from "lucide-react";
+import { StoryMap } from "@/components/StoryMap";
+
 
 type UserType = 'student' | 'teacher' | 'community' | 'contributor';
 type ColorScheme = 'terra' | 'ocean' | 'forest' | 'amber' | 'ruby';
@@ -102,16 +104,9 @@ const Index = () => {
             </TabsContent>
             
             <TabsContent value="map">
-              <div className="min-h-[400px] flex items-center justify-center border rounded-lg bg-white/50 p-6">
-                <div className="text-center space-y-4">
-                  <h3 className="text-lg font-medium">Story Map Coming Soon</h3>
-                  <p className="text-muted-foreground">Explore stories by region and culture on an interactive map</p>
-                  <Button variant="outline" className="gap-2">
-                    <Plus className="w-4 h-4" /> Add the First Pin
-                  </Button>
-                </div>
-              </div>
+              <StoryMap colorScheme={userData.colorScheme} />
             </TabsContent>
+
             
             <TabsContent value="learning">
               <div className="min-h-[400px] flex items-center justify-center border rounded-lg bg-white/50 p-6">
