@@ -52,6 +52,18 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
+				mosaic: {
+					terra: '#CB997E',
+					sage: '#A5A58D',
+					lichen: '#B7B7A4',
+					mint: '#DDBEA9',
+					sand: '#FFE8D6',
+					ocean: '#6B7AA1',
+					ruby: '#C9485B',
+					amber: '#E4B363',
+					forest: '#4A6C6F',
+					clay: '#9C6644'
+				},
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
 					foreground: 'hsl(var(--sidebar-foreground))',
