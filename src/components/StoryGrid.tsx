@@ -1,10 +1,20 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { StoryTile } from "./StoryTile";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Filter } from "lucide-react";
-import { SAMPLE_STORIES } from "./SampleStories"; 
+import { supabase } from "@/lib/supabaseClient";
+
+interface Story {
+  id: string;
+  name:string;
+  title: string;
+  excerpt: string;
+  culture: string;
+  tags: string[];
+  type: "audio" | "text" | "storybook";
+  color: "terra" | "ocean" | "forest" | "amber" | "ruby";
+}
 
 interface StoryGridProps {
   colorScheme?: string;
@@ -13,17 +23,31 @@ interface StoryGridProps {
 
 export function StoryGrid({ colorScheme = "terra", onStorySelect }: StoryGridProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [stories] = useState(SAMPLE_STORIES);
-  
+  const [stories, setStories] = useState<Story[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchStories() {
+      const { data, error } = await supabase
+      .from("stories")
+      .select("*")
+      .order("id", { ascending: true });    
+      if (error) console.error("Supabase fetch error:", error);
+      else setStories(data as Story[]);
+      setLoading(false);
+    }
+    fetchStories();
+  }, []);
+
   const filteredStories = stories.filter((story) => {
     const searchTermLower = searchTerm.toLowerCase();
     return (
       story.title.toLowerCase().includes(searchTermLower) ||
       story.culture.toLowerCase().includes(searchTermLower) ||
-      story.tags.some(tag => tag.toLowerCase().includes(searchTermLower))
+      story.tags.some((tag) => tag.toLowerCase().includes(searchTermLower))
     );
   });
-  
+
   return (
     <div className="space-y-6">
       <div className="flex items-center space-x-2">
@@ -40,26 +64,34 @@ export function StoryGrid({ colorScheme = "terra", onStorySelect }: StoryGridPro
           <Filter className="h-4 w-4" />
         </Button>
       </div>
-      
+
       <div className="tile-grid">
-        {filteredStories.map((story) => (
-          <StoryTile
-            key={story.id}
-            id={story.id}
-            title={story.title}
-            excerpt={story.excerpt}
-            culture={story.culture}
-            tags={story.tags}
-            type={story.type}
-            color={colorScheme || story.color}
-            onClick={onStorySelect}
-          />
-        ))}
-        
-        {filteredStories.length === 0 && (
+        {loading ? (
+          <p className="text-muted-foreground text-center">Loading stories...</p>
+        ) : filteredStories.length === 0 ? (
           <div className="col-span-full text-center py-10">
             <p className="text-muted-foreground">No stories found matching your search.</p>
           </div>
+        ) : (
+          filteredStories.map((story) => (
+            <div
+              key={story.id}
+              className="fade-in"
+            >
+            <StoryTile
+              key={story.id}
+              id={story.id}
+              title={story.title}
+              excerpt={story.excerpt}
+              culture={story.culture}
+              tags={story.tags}
+              type={story.type}
+              color={colorScheme || story.color}
+              onClick={onStorySelect}
+            />
+          </div>
+          )
+          )
         )}
       </div>
     </div>
