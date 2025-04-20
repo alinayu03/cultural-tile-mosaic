@@ -55,10 +55,15 @@ export function StoryTile({
       
       toast.success('Curriculum generated successfully!');
       
-      // Call parent function to select this story and switch to learning tab
+      // Call parent function to show curriculum popup
       onCurriculumGenerated(id);
     } catch (error) {
-      // Error handling
+      if (error instanceof CurriculumGenerationError) {
+        toast.error(error.message);
+      } else {
+        toast.error('Failed to generate curriculum');
+        console.error('Error generating curriculum:', error);
+      }
     } finally {
       setIsGenerating(false);
     }

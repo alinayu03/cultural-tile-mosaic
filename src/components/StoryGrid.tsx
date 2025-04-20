@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabaseClient";
 
 interface Story {
   id: string;
-  name:string;
+  name: string;
   title: string;
   excerpt: string;
   culture: string;
@@ -15,6 +15,7 @@ interface Story {
   type: "audio" | "text" | "storybook";
   color: "terra" | "ocean" | "forest" | "amber" | "ruby";
   curriculum: string;
+  content: string; // Make sure this exists for the StoryTile
 }
 
 interface StoryGridProps {
@@ -23,7 +24,7 @@ interface StoryGridProps {
   onCurriculumGenerated: (id: string) => void;
 }
 
-export function StoryGrid({ colorScheme = "terra", onStorySelect }: StoryGridProps) {
+export function StoryGrid({ colorScheme = "terra", onStorySelect, onCurriculumGenerated }: StoryGridProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,8 +91,8 @@ export function StoryGrid({ colorScheme = "terra", onStorySelect }: StoryGridPro
               type={story.type}
               color={colorScheme || story.color}
               onClick={onStorySelect}
-              content={story.curriculum} 
-              onCurriculumGenerated={() => {}}
+              content={story.content || ""} 
+              onCurriculumGenerated={onCurriculumGenerated} // Pass the prop correctly
             />
           </div>
           )
