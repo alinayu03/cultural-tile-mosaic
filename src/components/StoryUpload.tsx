@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,19 +32,79 @@ export function StoryUpload({ onUploadComplete, onCancel }: StoryUploadProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState("");
+  const [isGeocodingInProgress, setIsGeocodingInProgress] = useState(false);
 
   // Convert tags string to array
   const parseTagsToArray = (tagString: string): string[] => {
     return tagString.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
   };
 
+  // Geocode the city and country to get coordinates
+  const geocodeLocation = async (cityName: string, countryName: string) => {
+    if (!cityName) return;
+    
+    setIsGeocodingInProgress(true);
+    try {
+      // Using OpenStreetMap's Nominatim API for geocoding (free and doesn't require API key)
+      const query = encodeURIComponent(`${cityName}${countryName ? ', ' + countryName : ''}`);
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`);
+      const data = await response.json();
+      
+      if (data && data.length > 0) {
+        setLatitude(parseFloat(data[0].lat));
+        setLongitude(parseFloat(data[0].lon));
+      } else {
+        console.warn("Location not found");
+        setLatitude(null);
+        setLongitude(null);
+      }
+    } catch (error) {
+      console.error("Geocoding error:", error);
+      setLatitude(null);
+      setLongitude(null);
+    } finally {
+      setIsGeocodingInProgress(false);
+    }
+  };
+
+  // Watch for changes in city or country to update coordinates
+  useEffect(() => {
+    if (city) {
+      // Add a small delay to avoid too many API calls while user is typing
+      const timer = setTimeout(() => {
+        geocodeLocation(city, country);
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    } else {
+      // Clear coordinates if city is empty
+      setLatitude(null);
+      setLongitude(null);
+    }
+  }, [city, country]);
+
   // Get current location if user allows
   const getCurrentLocation = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
+        async (position) => {
           setLatitude(position.coords.latitude);
           setLongitude(position.coords.longitude);
+          
+          // Reverse geocoding to get city and country from coordinates
+          try {
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}`
+            );
+            const data = await response.json();
+            
+            if (data && data.address) {
+              setCity(data.address.city || data.address.town || data.address.village || data.address.hamlet || '');
+              setCountry(data.address.country || '');
+            }
+          } catch (error) {
+            console.error("Reverse geocoding error:", error);
+          }
         },
         (error) => {
           console.error("Error getting location:", error);
@@ -72,7 +132,7 @@ export function StoryUpload({ onUploadComplete, onCancel }: StoryUploadProps) {
     // This is just a placeholder for the UI interaction
   };
 
-  // Upload file to Supabase Storage - fixed version
+  // Upload file to Supabase Storage
   const uploadFileToStorage = async (file: File, bucket: string): Promise<string | null> => {
     try {
       const fileExt = file.name.split('.').pop();
@@ -87,7 +147,6 @@ export function StoryUpload({ onUploadComplete, onCancel }: StoryUploadProps) {
 
       if (error) {
         console.error(`Error uploading to ${bucket}:`, error);
-        // Important: don't throw here, just return null and handle it in the calling function
         return null;
       }
 
@@ -96,7 +155,7 @@ export function StoryUpload({ onUploadComplete, onCancel }: StoryUploadProps) {
       return urlData.publicUrl;
     } catch (error) {
       console.error(`Error uploading ${bucket} file:`, error);
-      return null; // Make sure we return null on error
+      return null;
     }
   };
 
@@ -115,7 +174,6 @@ export function StoryUpload({ onUploadComplete, onCancel }: StoryUploadProps) {
       if (imageFile) {
         setUploadProgress(20);
         imageUrl = await uploadFileToStorage(imageFile, 'story_images');
-        // Check if upload failed but don't break the whole submission
         if (!imageUrl) {
           console.warn("Image upload failed but continuing with submission");
         }
@@ -124,7 +182,6 @@ export function StoryUpload({ onUploadComplete, onCancel }: StoryUploadProps) {
       if (audioFile) {
         setUploadProgress(40);
         audioUrl = await uploadFileToStorage(audioFile, 'story_audio');
-        // Check if upload failed but don't break the whole submission
         if (!audioUrl) {
           console.warn("Audio upload failed but continuing with submission");
         }
@@ -133,7 +190,6 @@ export function StoryUpload({ onUploadComplete, onCancel }: StoryUploadProps) {
       if (uploadFile && uploadTab === 'file') {
         setUploadProgress(60);
         documentUrl = await uploadFileToStorage(uploadFile, 'story_documents');
-        // Check if upload failed but don't break the whole submission
         if (!documentUrl) {
           console.warn("Document upload failed but continuing with submission");
         }
@@ -147,6 +203,11 @@ export function StoryUpload({ onUploadComplete, onCancel }: StoryUploadProps) {
         excerpt = storyText.length > 150 ? storyText.substring(0, 147) + '...' : storyText;
       } else if (storyTitle) {
         excerpt = `A ${uploadTab} story about ${storyTitle}`;
+      }
+      
+      // If location hasn't been geocoded yet, try one more time
+      if (city && !latitude && !longitude) {
+        await geocodeLocation(city, country);
       }
       
       // Prepare data for database insertion
@@ -341,7 +402,7 @@ export function StoryUpload({ onUploadComplete, onCancel }: StoryUploadProps) {
 
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <Label htmlFor="location">Location</Label>
+                <Label>Location</Label>
                 <Button 
                   type="button" 
                   variant="ghost" 
@@ -352,24 +413,20 @@ export function StoryUpload({ onUploadComplete, onCancel }: StoryUploadProps) {
                   <MapPin className="w-3 h-3 mr-1" /> Use current location
                 </Button>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <Input
-                  id="latitude"
-                  placeholder="Latitude"
-                  type="number"
-                  step="any"
-                  value={latitude || ''}
-                  onChange={(e) => setLatitude(parseFloat(e.target.value) || null)}
-                />
-                <Input
-                  id="longitude"
-                  placeholder="Longitude"
-                  type="number"
-                  step="any"
-                  value={longitude || ''}
-                  onChange={(e) => setLongitude(parseFloat(e.target.value) || null)}
-                />
+              
+              {/* Location status feedback */}
+              <div className="text-sm text-muted-foreground">
+                {isGeocodingInProgress && "Finding location coordinates..."}
+                {!isGeocodingInProgress && city && latitude && longitude && 
+                  `Location found: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`}
+                {!isGeocodingInProgress && city && !latitude && !longitude && 
+                  "Location not found. Please check city name."}
+                {!city && "Enter a city name to geocode location automatically."}
               </div>
+              
+              {/* Hidden inputs to store lat/long but not visible to user */}
+              <input type="hidden" value={latitude || ''} />
+              <input type="hidden" value={longitude || ''} />
             </div>
 
             <div className="space-y-3">
