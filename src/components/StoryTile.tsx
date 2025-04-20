@@ -1,7 +1,11 @@
-
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Star, Book, Headphones } from "lucide-react";
+import { Star, Book, Headphones, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import { createClient } from '@supabase/supabase-js';
+import { generateCurriculum, CurriculumGenerationError } from '@/services/curriculumService';
+import { toast } from 'sonner';
 
 interface StoryTileProps {
   id: string;
@@ -12,7 +16,13 @@ interface StoryTileProps {
   type: 'audio' | 'text' | 'storybook';
   color: string;
   onClick: (id: string) => void;
+  content: string;
 }
+
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
 
 export function StoryTile({ 
   id,
@@ -22,8 +32,38 @@ export function StoryTile({
   tags,
   type,
   color = 'terra',
-  onClick
+  onClick,
+  content
 }: StoryTileProps) {
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const handleGenerateCurriculum = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsGenerating(true);
+    
+    try {
+      const curriculum = await generateCurriculum(title, content, culture);
+      
+      const { error } = await supabase
+        .from('stories')
+        .update({ curriculum })
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      toast.success('Curriculum generated successfully!');
+    } catch (error) {
+      console.error('Error generating curriculum:', error);
+      toast.error(
+        error instanceof CurriculumGenerationError
+          ? error.message
+          : 'Failed to generate curriculum'
+      );
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const bgColors = {
     terra: 'bg-mosaic-terra/20 hover:bg-mosaic-terra/30',
     ocean: 'bg-mosaic-ocean/20 hover:bg-mosaic-ocean/30',
@@ -62,7 +102,19 @@ export function StoryTile({
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
           <CardTitle className="text-lg font-bold">{title}</CardTitle>
-          {typeIcon()}
+          <div className="flex items-center gap-2">
+            {typeIcon()}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={handleGenerateCurriculum}
+              disabled={isGenerating}
+              title="Generate curriculum"
+            >
+              <Plus className={`h-4 w-4 ${isGenerating ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
         </div>
         <p className="text-sm text-muted-foreground">{culture}</p>
       </CardHeader>
