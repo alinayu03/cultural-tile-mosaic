@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Onboarding } from "@/components/Onboarding";
 import { StoryGrid } from "@/components/StoryGrid";
@@ -8,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Upload } from "lucide-react";
 import { StoryMap } from "@/components/StoryMap";
-
+import { LearningResources } from "@/components/LearningResources";
+import { CurriculumPopup } from "@/components/CurriculumPopup";
 
 type UserType = 'student' | 'teacher' | 'community' | 'contributor';
 type ColorScheme = 'terra' | 'ocean' | 'forest' | 'amber' | 'ruby';
@@ -29,6 +29,8 @@ const Index = () => {
   const [currentView, setCurrentView] = useState<AppView>('grid');
   const [selectedStoryId, setSelectedStoryId] = useState<string>("");
   const [activeTab, setActiveTab] = useState<string>("explore");
+  const [showCurriculumPopup, setShowCurriculumPopup] = useState<boolean>(false);
+  const [curriculumStoryId, setCurriculumStoryId] = useState<string>("");
   
   const handleOnboardingComplete = (userData: {
     userType: UserType;
@@ -46,6 +48,18 @@ const Index = () => {
   
   const handleBackToGrid = () => {
     setCurrentView('grid');
+  };
+  
+  const handleCurriculumGenerated = (storyId: string) => {
+    setCurriculumStoryId(storyId);
+    setShowCurriculumPopup(true);
+  };
+  
+  const handleCloseCurriculumPopup = () => {
+    setShowCurriculumPopup(false);
+    // Optionally navigate to the learning tab
+    setActiveTab("learning");
+    setSelectedStoryId(curriculumStoryId);
   };
   
   const getBackgroundPattern = () => {
@@ -77,6 +91,13 @@ const Index = () => {
 
   return (
     <div className={`min-h-screen ${getBackgroundPattern()} mosaic-pattern`}>
+      {showCurriculumPopup && (
+        <CurriculumPopup 
+          storyId={curriculumStoryId} 
+          onClose={handleCloseCurriculumPopup} 
+        />
+      )}
+      
       <div className="container mx-auto p-4 md:p-6">
         <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
           <div>
@@ -100,25 +121,45 @@ const Index = () => {
             </TabsList>
             
             <TabsContent value="explore" className="space-y-4">
-              <StoryGrid colorScheme={userData.colorScheme} onStorySelect={handleStorySelect} />
+              <StoryGrid
+                colorScheme={userData.colorScheme}
+                onStorySelect={handleStorySelect}
+                onCurriculumGenerated={handleCurriculumGenerated}
+              />
             </TabsContent>
             
             <TabsContent value="map">
               <StoryMap colorScheme={userData.colorScheme} />
             </TabsContent>
 
-            
             <TabsContent value="learning">
-              <div className="min-h-[400px] flex items-center justify-center border rounded-lg bg-white/50 p-6">
-                <div className="text-center space-y-4">
-                  <h3 className="text-lg font-medium">Learning Resources Coming Soon</h3>
-                  <p className="text-muted-foreground">
-                    Turn stories into lesson plans, activities, and educational content
-                  </p>
-                  <Button variant="outline" className="gap-2">
-                    <Plus className="w-4 h-4" /> Create First Resource
-                  </Button>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-xl font-medium">Learning Resources</h2>
+                  <div className="text-sm text-muted-foreground">
+                    Generate curriculum by clicking the + button on any story card
+                  </div>
                 </div>
+                
+                {selectedStoryId ? (
+                  <LearningResources storyId={selectedStoryId} />
+                ) : (
+                  <div className="min-h-[400px] flex items-center justify-center border rounded-lg bg-white/50 p-6">
+                    <div className="text-center space-y-4">
+                      <h3 className="text-lg font-medium">No Story Selected</h3>
+                      <p className="text-muted-foreground">
+                        Select a story or generate a curriculum to view learning resources
+                      </p>
+                      <Button 
+                        variant="outline" 
+                        className="gap-2"
+                        onClick={() => setActiveTab("explore")}
+                      >
+                        <Plus className="w-4 h-4" /> Find a Story
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </TabsContent>
           </Tabs>
