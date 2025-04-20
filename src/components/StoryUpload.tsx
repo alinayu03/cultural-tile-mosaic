@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +5,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Mic, Upload, FileText, X } from "lucide-react";
+import { Mic, Upload, FileText, X, MapPin } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
 
 interface StoryUploadProps {
   onUploadComplete: () => void;
@@ -17,25 +17,178 @@ export function StoryUpload({ onUploadComplete, onCancel }: StoryUploadProps) {
   const [uploadTab, setUploadTab] = useState("audio");
   const [isRecording, setIsRecording] = useState(false);
   const [storyTitle, setStoryTitle] = useState("");
-  const [storyteller, setStoryteller] = useState("");
+  const [name, setStoryteller] = useState("");
   const [culture, setCulture] = useState("");
   const [storyText, setStoryText] = useState("");
   const [tags, setTags] = useState("");
+  const [city, setCity] = useState("");
+  const [country, setCountry] = useState("");
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [color, setColor] = useState("terra"); // Default color
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    
-    // Simulate upload delay
-    setTimeout(() => {
-      setIsSubmitting(false);
-      onUploadComplete();
-    }, 1500);
+  // Convert tags string to array
+  const parseTagsToArray = (tagString: string): string[] => {
+    return tagString.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
+  };
+
+  // Get current location if user allows
+  const getCurrentLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLatitude(position.coords.latitude);
+          setLongitude(position.coords.longitude);
+        },
+        (error) => {
+          console.error("Error getting location:", error);
+        }
+      );
+    }
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'audio' | 'document') => {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      if (type === 'image') {
+        setImageFile(files[0]);
+      } else if (type === 'audio') {
+        setAudioFile(files[0]);
+      } else {
+        setUploadFile(files[0]);
+      }
+    }
   };
 
   const handleRecordToggle = () => {
     setIsRecording(!isRecording);
+    // Here you would implement actual audio recording functionality
+    // This is just a placeholder for the UI interaction
+  };
+
+  // Upload file to Supabase Storage - fixed version
+  const uploadFileToStorage = async (file: File, bucket: string): Promise<string | null> => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) {
+        console.error(`Error uploading to ${bucket}:`, error);
+        // Important: don't throw here, just return null and handle it in the calling function
+        return null;
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(fileName);
+      return urlData.publicUrl;
+    } catch (error) {
+      console.error(`Error uploading ${bucket} file:`, error);
+      return null; // Make sure we return null on error
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setErrorMessage("");
+    setUploadProgress(10);
+    
+    try {
+      // Handle file uploads first if there are any
+      let imageUrl = null;
+      let audioUrl = null;
+      let documentUrl = null;
+      
+      if (imageFile) {
+        setUploadProgress(20);
+        imageUrl = await uploadFileToStorage(imageFile, 'story_images');
+        // Check if upload failed but don't break the whole submission
+        if (!imageUrl) {
+          console.warn("Image upload failed but continuing with submission");
+        }
+      }
+      
+      if (audioFile) {
+        setUploadProgress(40);
+        audioUrl = await uploadFileToStorage(audioFile, 'story_audio');
+        // Check if upload failed but don't break the whole submission
+        if (!audioUrl) {
+          console.warn("Audio upload failed but continuing with submission");
+        }
+      }
+      
+      if (uploadFile && uploadTab === 'file') {
+        setUploadProgress(60);
+        documentUrl = await uploadFileToStorage(uploadFile, 'story_documents');
+        // Check if upload failed but don't break the whole submission
+        if (!documentUrl) {
+          console.warn("Document upload failed but continuing with submission");
+        }
+      }
+      
+      setUploadProgress(80);
+      
+      // Create excerpt based on content type
+      let excerpt = "";
+      if (uploadTab === 'text' && storyText) {
+        excerpt = storyText.length > 150 ? storyText.substring(0, 147) + '...' : storyText;
+      } else if (storyTitle) {
+        excerpt = `A ${uploadTab} story about ${storyTitle}`;
+      }
+      
+      // Prepare data for database insertion
+      const storyData = {
+        id: crypto.randomUUID(),
+        title: storyTitle,
+        culture: culture || null,
+        hometown: city || null,
+        tags: tags ? parseTagsToArray(tags) : [],
+        type: uploadTab,
+        color: color || "terra",
+        latitude: latitude || null,
+        longitude: longitude || null,
+        name: name || null,
+        image_url: imageUrl,
+        audio_url: audioUrl,
+        country: country || null,
+        excerpt: excerpt || null
+      };
+      
+      // Insert data into Supabase
+      const { error } = await supabase
+        .from('stories')
+        .insert([storyData]);
+      
+      if (error) {
+        console.error("Supabase insert error:", error);
+        throw new Error(`Failed to save story: ${error.message || error}`);
+      }
+      
+      setUploadProgress(100);
+      setTimeout(() => {
+        setIsSubmitting(false);
+        onUploadComplete();
+      }, 500);
+      
+    } catch (error) {
+      console.error("Error submitting story:", error);
+      setErrorMessage(error?.message || "Failed to upload story. Please try again.");
+      setIsSubmitting(false);
+      setUploadProgress(0);
+    }
   };
 
   return (
@@ -77,6 +230,15 @@ export function StoryUpload({ onUploadComplete, onCancel }: StoryUploadProps) {
                       ? "Recording... Click again to stop." 
                       : "Click to start recording your story"}
                   </p>
+                  <div className="mt-4 w-full">
+                    <Label htmlFor="audio-upload" className="block mb-2 text-sm">Or upload audio file</Label>
+                    <Input
+                      id="audio-upload"
+                      type="file"
+                      accept="audio/*"
+                      onChange={(e) => handleFileChange(e, 'audio')}
+                    />
+                  </div>
                 </div>
               </TabsContent>
 
@@ -97,12 +259,29 @@ export function StoryUpload({ onUploadComplete, onCancel }: StoryUploadProps) {
                 <div className="flex flex-col items-center justify-center p-10 border-2 border-dashed rounded-md bg-muted/50">
                   <Upload className="w-8 h-8 mb-4 text-muted-foreground" />
                   <p className="mb-2 text-sm font-medium">Drag and drop a file or</p>
-                  <Button type="button" variant="secondary" size="sm">
+                  <Input
+                    id="file-upload"
+                    type="file"
+                    accept=".pdf,.doc,.docx,.txt,.mp3,.wav"
+                    className="hidden"
+                    onChange={(e) => handleFileChange(e, 'document')}
+                  />
+                  <Button 
+                    type="button" 
+                    variant="secondary" 
+                    size="sm"
+                    onClick={() => document.getElementById('file-upload')?.click()}
+                  >
                     Browse files
                   </Button>
                   <p className="mt-2 text-xs text-muted-foreground">
                     Supports audio (MP3, WAV), text (PDF, DOC) up to 50MB
                   </p>
+                  {uploadFile && (
+                    <p className="mt-2 text-sm font-medium text-green-600">
+                      Selected: {uploadFile.name}
+                    </p>
+                  )}
                 </div>
               </TabsContent>
             </Tabs>
@@ -124,7 +303,7 @@ export function StoryUpload({ onUploadComplete, onCancel }: StoryUploadProps) {
                 <Input
                   id="storyteller"
                   placeholder="Who shared this story"
-                  value={storyteller}
+                  value={name}
                   onChange={(e) => setStoryteller(e.target.value)}
                 />
               </div>
@@ -139,6 +318,60 @@ export function StoryUpload({ onUploadComplete, onCancel }: StoryUploadProps) {
               </div>
             </div>
 
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-3">
+                <Label htmlFor="city">City/Town</Label>
+                <Input
+                  id="city"
+                  placeholder="City or town"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                />
+              </div>
+              <div className="space-y-3">
+                <Label htmlFor="country">Country</Label>
+                <Input
+                  id="country"
+                  placeholder="Country"
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <Label htmlFor="location">Location</Label>
+                <Button 
+                  type="button" 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={getCurrentLocation}
+                  className="text-xs flex items-center"
+                >
+                  <MapPin className="w-3 h-3 mr-1" /> Use current location
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  id="latitude"
+                  placeholder="Latitude"
+                  type="number"
+                  step="any"
+                  value={latitude || ''}
+                  onChange={(e) => setLatitude(parseFloat(e.target.value) || null)}
+                />
+                <Input
+                  id="longitude"
+                  placeholder="Longitude"
+                  type="number"
+                  step="any"
+                  value={longitude || ''}
+                  onChange={(e) => setLongitude(parseFloat(e.target.value) || null)}
+                />
+              </div>
+            </div>
+
             <div className="space-y-3">
               <Label htmlFor="tags">Tags (comma separated)</Label>
               <Input
@@ -148,15 +381,34 @@ export function StoryUpload({ onUploadComplete, onCancel }: StoryUploadProps) {
                 onChange={(e) => setTags(e.target.value)}
               />
             </div>
+
+            <div className="space-y-3">
+              <Label htmlFor="image">Story Image (optional)</Label>
+              <Input
+                id="image"
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleFileChange(e, 'image')}
+              />
+            </div>
           </div>
+
+          {errorMessage && (
+            <div className="mt-4 p-3 text-sm bg-red-100 text-red-800 rounded-md">
+              {errorMessage}
+            </div>
+          )}
         </CardContent>
 
         <CardFooter className="flex justify-between">
           <Button type="button" variant="outline" onClick={onCancel}>
             <X className="w-4 h-4 mr-2" /> Cancel
           </Button>
-          <Button type="submit" disabled={isSubmitting || (!storyText && uploadTab === "text") || !storyTitle}>
-            {isSubmitting ? "Submitting..." : "Submit Story"}
+          <Button 
+            type="submit" 
+            disabled={isSubmitting || (!storyText && uploadTab === "text" && !uploadFile && !audioFile) || !storyTitle}
+          >
+            {isSubmitting ? `Uploading... ${uploadProgress}%` : "Submit Story"}
           </Button>
         </CardFooter>
       </form>
