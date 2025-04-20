@@ -14,11 +14,13 @@ interface Story {
   tags: string[];
   type: "audio" | "text" | "storybook";
   color: "terra" | "ocean" | "forest" | "amber" | "ruby";
+  curriculum: string;
 }
 
 interface StoryGridProps {
   colorScheme?: string;
   onStorySelect: (id: string) => void;
+  onCurriculumGenerated: (id: string) => void;
 }
 
 export function StoryGrid({ colorScheme = "terra", onStorySelect }: StoryGridProps) {
@@ -88,6 +90,8 @@ export function StoryGrid({ colorScheme = "terra", onStorySelect }: StoryGridPro
               type={story.type}
               color={colorScheme || story.color}
               onClick={onStorySelect}
+              content={story.curriculum} 
+              onCurriculumGenerated={() => {}}
             />
           </div>
           )

@@ -17,6 +17,7 @@ interface StoryTileProps {
   color: string;
   onClick: (id: string) => void;
   content: string;
+  onCurriculumGenerated: (id: string) => void; 
 }
 
 const supabase = createClient(
@@ -33,7 +34,8 @@ export function StoryTile({
   type,
   color = 'terra',
   onClick,
-  content
+  content,
+  onCurriculumGenerated
 }: StoryTileProps) {
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -48,22 +50,20 @@ export function StoryTile({
         .from('stories')
         .update({ curriculum })
         .eq('id', id);
-
+  
       if (error) throw error;
       
       toast.success('Curriculum generated successfully!');
+      
+      // Call parent function to select this story and switch to learning tab
+      onCurriculumGenerated(id);
     } catch (error) {
-      console.error('Error generating curriculum:', error);
-      toast.error(
-        error instanceof CurriculumGenerationError
-          ? error.message
-          : 'Failed to generate curriculum'
-      );
+      // Error handling
     } finally {
       setIsGenerating(false);
     }
   };
-
+  
   const bgColors = {
     terra: 'bg-mosaic-terra/20 hover:bg-mosaic-terra/30',
     ocean: 'bg-mosaic-ocean/20 hover:bg-mosaic-ocean/30',

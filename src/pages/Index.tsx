@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Upload } from "lucide-react";
 import { StoryMap } from "@/components/StoryMap";
+import { LearningResources } from "@/components/LearningResources";
 
 
 type UserType = 'student' | 'teacher' | 'community' | 'contributor';
@@ -46,6 +47,11 @@ const Index = () => {
   
   const handleBackToGrid = () => {
     setCurrentView('grid');
+  };
+  
+  const handleCurriculumGenerated = (storyId: string) => {
+    setSelectedStoryId(storyId);
+    setActiveTab("learning");
   };
   
   const getBackgroundPattern = () => {
@@ -100,7 +106,11 @@ const Index = () => {
             </TabsList>
             
             <TabsContent value="explore" className="space-y-4">
-              <StoryGrid colorScheme={userData.colorScheme} onStorySelect={handleStorySelect} />
+            <StoryGrid
+              colorScheme={userData.colorScheme}
+              onStorySelect={handleStorySelect}
+              onCurriculumGenerated={handleCurriculumGenerated}
+            />
             </TabsContent>
             
             <TabsContent value="map">
@@ -109,16 +119,33 @@ const Index = () => {
 
             
             <TabsContent value="learning">
-              <div className="min-h-[400px] flex items-center justify-center border rounded-lg bg-white/50 p-6">
-                <div className="text-center space-y-4">
-                  <h3 className="text-lg font-medium">Learning Resources Coming Soon</h3>
-                  <p className="text-muted-foreground">
-                    Turn stories into lesson plans, activities, and educational content
-                  </p>
-                  <Button variant="outline" className="gap-2">
-                    <Plus className="w-4 h-4" /> Create First Resource
-                  </Button>
-                </div>
+  <div className="space-y-4">
+    <div className="flex justify-between items-center">
+      <h2 className="text-xl font-medium">Learning Resources</h2>
+      <div className="text-sm text-muted-foreground">
+        Generate curriculum by clicking the + button on any story card
+      </div>
+    </div>
+    
+    {selectedStoryId ? (
+        <LearningResources storyId={selectedStoryId} />
+                ) : (
+                  <div className="min-h-[400px] flex items-center justify-center border rounded-lg bg-white/50 p-6">
+                    <div className="text-center space-y-4">
+                      <h3 className="text-lg font-medium">No Story Selected</h3>
+                      <p className="text-muted-foreground">
+                        Select a story or generate a curriculum to view learning resources
+                      </p>
+                      <Button 
+                        variant="outline" 
+                        className="gap-2"
+                        onClick={() => setActiveTab("explore")}
+                      >
+                        <Plus className="w-4 h-4" /> Find a Story
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </TabsContent>
           </Tabs>
