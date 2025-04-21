@@ -1,6 +1,6 @@
 # Mosaic
 
-![Website Demo]([https://s1.ezgif.com/tmp/ezgif-14f320ea5ce9d9.gif]))
+<img src="https://github.com/alinayu03/cultural-tile-mosaic/blob/main/Website%20Demo.gif" alt="Website GIF" width="800" height="400">
 
 > Where every story is a tile in our shared history
 
