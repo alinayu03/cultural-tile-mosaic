@@ -1,6 +1,12 @@
 # Mosaic
 
+**Cultural Archive**
+
 <img src="https://github.com/alinayu03/cultural-tile-mosaic/blob/main/Website%20Demo.gif" alt="Website GIF" width="800" height="400">
+
+**Curriculum Generation**
+
+<img src="https://github.com/alinayu03/cultural-tile-mosaic/blob/main/Generation%20Demo.gif" alt="Generation GIF" width="800" height="400">
 
 > Where every story is a tile in our shared history
 
