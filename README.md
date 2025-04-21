@@ -1,6 +1,6 @@
 # Mosaic
 
-![Mosaic Logo](https://via.placeholder.com/150x50?text=Mosaic)
+![Website Demo]([https://s1.ezgif.com/tmp/ezgif-14f320ea5ce9d9.gif]))
 
 > Where every story is a tile in our shared history
 
