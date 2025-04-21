@@ -4,7 +4,7 @@
 
 <img src="https://github.com/alinayu03/cultural-tile-mosaic/blob/main/Website%20Demo.gif" alt="Website GIF" width="800" height="400">
 
-**Curriculum Generation**
+**AI-Powered Story Generation**
 
 <img src="https://github.com/alinayu03/cultural-tile-mosaic/blob/main/Generation%20Demo.gif" alt="Generation GIF" width="800" height="400">
 
